@@ -23,7 +23,7 @@ export default function Home() {
             "image/png",
             "image/jpeg",
           ]}
-          maxFileSize={1}
+          maxFileSize={100}
           label="Max File Size: 1MB"
           labelAlt="Accepted File Types: png, jpeg"
         />

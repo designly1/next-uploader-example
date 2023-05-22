@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, ChangeEvent, useRef } from 'react'
+import React, { useState, ChangeEvent, useRef } from 'react';
 
 interface FileUploaderProps {
     acceptedFileTypes?: string[] | null;
@@ -44,9 +44,9 @@ export default function FileUploader(props: FileUploaderProps) {
                     break;
                 }
             }
-            if (isValid) { // Only set the files and start the upload if all files are valid
+            if (isValid) {
                 setSelectedFiles(files);
-                files.forEach(file => fileUploadHandler(file));
+                fileUploadHandler(files);
             }
         }
     };
@@ -61,43 +61,45 @@ export default function FileUploader(props: FileUploaderProps) {
         }
     }
 
-    const fileUploadHandler = (file: File) => {
-        const formData = new FormData();
-        formData.append("uploads", file);
+    const fileUploadHandler = async (files: File[]) => {
+        let totalSize = files.reduce((total, file) => total + file.size, 0);
+        let totalUploaded = 0;
 
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", url, true);
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append("uploads", file);
 
-        // OPTIONAL: Set authorization headers
-        /**
-         * xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-         */
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", url, true);
 
-        // Add an event listener for upload progress
-        xhr.upload.addEventListener("progress", event => {
-            if (event.lengthComputable) {
-                const progress = Math.round((event.loaded / event.total) * 100);
-                setUploadProgress(progress);
-            }
-        });
-
-        // Event listener for errors during upload
-        xhr.upload.addEventListener("error", () => {
-            setUploadError("An error occurred while uploading the file.");
-        });
-
-        xhr.addEventListener("readystatechange", () => {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    setUploadSuccess(true);
-                } else {
-                    // Error occurred during upload
-                    setUploadError("An error occurred while uploading the file. Server response: " + xhr.statusText);
+            xhr.upload.addEventListener("progress", event => {
+                if (event.lengthComputable) {
+                    totalUploaded += event.loaded;
+                    const progress = Math.round((totalUploaded / totalSize) * 100);
+                    setUploadProgress(progress);
                 }
-            }
-        });
+            });
 
-        xhr.send(formData);
+            xhr.upload.addEventListener("error", () => {
+                setUploadError("An error occurred while uploading the file.");
+            });
+
+            xhr.addEventListener("readystatechange", () => {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        setUploadSuccess(true);
+                    } else {
+                        setUploadError("An error occurred while uploading the file. Server response: " + xhr.statusText);
+                    }
+                }
+            });
+
+            await new Promise((resolve, reject) => {
+                xhr.onload = resolve;
+                xhr.onerror = reject;
+                xhr.send(formData);
+            });
+        }
     };
 
     return (
