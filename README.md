@@ -13,6 +13,7 @@ Well enough babble, on to the code!
 ```jsx
 'use client'
 import React, { useState, ChangeEvent, useRef } from 'react';
+import { FaCheck, FaTimes } from 'react-icons/fa';
 
 interface FileUploaderProps {
     acceptedFileTypes?: string[] | null;
@@ -31,96 +32,96 @@ export default function FileUploader(props: FileUploaderProps) {
         label = "",
         labelAlt = ""
     } = props;
+
     const MAX_FILE_BYTES = maxFileSize * 1024 * 1024; // MB to bytes
-    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [uploadProgress, setUploadProgress] = useState<number>(0);
+
+    // Change the state structure to handle multiple file progress and status
+    const [fileProgress, setFileProgress] = useState<{ [key: string]: number }>({});
+    const [fileStatus, setFileStatus] = useState<{ [key: string]: string }>({});
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
+
+    const isError = Object.values(fileStatus).some(status => status !== 'Uploaded');
 
     // Create a ref for the file input
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const fileSelectedHandler = (event: ChangeEvent<HTMLInputElement>) => {
-        setUploadError(null);
-        if (event.target.files) {
-            const files = Array.from(event.target.files);
-            let isValid = true; // Flag to check if all files are valid
-            for (const file of files) {
-                if (file.size > MAX_FILE_BYTES) {
-                    setUploadError(`File size cannot exceed ${maxFileSize} MB`);
-                    isValid = false;
-                    break;
-                }
-                if (acceptedFileTypes && !acceptedFileTypes.includes(file.type)) {
-                    setUploadError("File type not accepted. Accepted types: " + acceptedFileTypes.join(', '));
-                    isValid = false;
-                    break;
-                }
-            }
-            if (isValid) {
-                setSelectedFiles(files);
-                fileUploadHandler(files);
-            }
-        }
-    };
-
     const resetUploader = () => {
-        setUploadProgress(0);
+        setFileProgress({});
+        setFileStatus({});
         setUploadError(null);
-        setSelectedFiles([]);
         setUploadSuccess(false);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
-    }
+    };
 
-    const fileUploadHandler = async (files: File[]) => {
-        let totalSize = files.reduce((total, file) => total + file.size, 0);
-        let totalUploaded = 0;
+    const fileSelectedHandler = (event: ChangeEvent<HTMLInputElement>) => {
+        setUploadError(null); // reset the upload error when a new file is selected
+        if (event.target.files) {
+            const files = Array.from(event.target.files);
+            let isValid = true; // Flag to check if all files are valid
+            let fileErrors: { [key: string]: string } = {};
 
-        for (const file of files) {
-            const formData = new FormData();
-            formData.append("uploads", file);
-
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", url, true);
-
-            xhr.upload.addEventListener("progress", event => {
-                if (event.lengthComputable) {
-                    totalUploaded += event.loaded;
-                    const progress = Math.round((totalUploaded / totalSize) * 100);
-                    setUploadProgress(progress);
+            for (const file of files) {
+                if (file.size > MAX_FILE_BYTES) {
+                    fileErrors[file.name] = `File size cannot exceed ${maxFileSize} MB`;
+                    isValid = false;
                 }
-            });
-
-            xhr.upload.addEventListener("error", () => {
-                setUploadError("An error occurred while uploading the file.");
-            });
-
-            xhr.addEventListener("readystatechange", () => {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        setUploadSuccess(true);
-                    } else {
-                        setUploadError("An error occurred while uploading the file. Server response: " + xhr.statusText);
-                    }
+                if (acceptedFileTypes && !acceptedFileTypes.includes(file.type)) {
+                    fileErrors[file.name] = "File type not accepted. Accepted types: " + acceptedFileTypes.join(', ');
+                    isValid = false;
                 }
-            });
+            }
 
-            await new Promise((resolve, reject) => {
-                xhr.onload = resolve;
-                xhr.onerror = reject;
-                xhr.send(formData);
-            });
+            if (!isValid) {
+                setFileStatus(fileErrors);
+            } else {
+                files.forEach(file => {
+                    setFileProgress(prev => ({ ...prev, [file.name]: 0 }));
+                    fileUploadHandler(file);
+                });
+            }
         }
     };
 
+    const fileUploadHandler = (file: File) => {
+        const formData = new FormData();
+        formData.append("uploads", file);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url, true);
+
+        xhr.upload.addEventListener("progress", event => {
+            if (event.lengthComputable) {
+                const progress = Math.round((event.loaded / event.total) * 100);
+                setFileProgress(prev => ({ ...prev, [file.name]: progress }));
+            }
+        });
+
+        xhr.addEventListener("readystatechange", () => {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    setFileStatus(prev => ({ ...prev, [file.name]: 'Uploaded' }));
+                    setUploadSuccess(true);
+                } else {
+                    setFileStatus(prev => ({ ...prev, [file.name]: "An error occurred while uploading the file. Server response: " + xhr.statusText }));
+                }
+            }
+        });
+
+        xhr.send(formData);
+    };
+
     return (
-        <div className="flex flex-col gap-4 w-full min-h-24">
+        <div className="flex flex-col gap-4 w-full h-60 md:h-48">
             {
                 uploadSuccess
                     ?
-                    <>
+                    <div className="flex flex-col gap-2">
+                        {
+                            isError ? <span className="text-xs text-red-500">Upload completed, but with errors.</span> : <></>
+                        }
                         <div className="btn-group w-full">
                             <span className="btn btn-success w-1/2">Success!</span>
                             <button
@@ -128,12 +129,7 @@ export default function FileUploader(props: FileUploaderProps) {
                                 onClick={resetUploader}
                             >Upload Another</button>
                         </div>
-                        <div className="text-xs text-green-500 flex gap-2 flex-wrap items-center">
-                            {selectedFiles.map(f => (
-                                <span className="bg-zinc-700 px-2 py-1 rounded-lg" key={f.name}>{f.name}</span>
-                            ))}
-                        </div>
-                    </>
+                    </div>
                     :
                     <div className="form-control w-full">
                         <label className="label">
@@ -153,13 +149,33 @@ export default function FileUploader(props: FileUploaderProps) {
                         </label>
                     </div>
             }
-            {
-                uploadProgress > 0
-                    ?
-                    <progress className="progress progress-primary w-full" value={uploadProgress} max="100"></progress>
-                    :
-                    <></>
-            }
+
+            <div className="overflow-x-auto flex gap-2 flex-col-reverse">
+                {Object.entries(fileProgress).map(([fileName, progress]) => (
+                    <div key={fileName} className="text-xs flex flex-col gap-1">
+                        <p>{fileName}</p>
+                        <div className="flex items-center gap-2">
+                            <progress
+                                className="progress progress-primary w-full"
+                                value={progress}
+                                max="100"
+                            />
+                            {progress === 100 &&
+                                <>
+                                    {
+                                        fileStatus[fileName] === 'Uploaded'
+                                            ?
+                                            <FaCheck className="text-xl text-green-500 mr-4" />
+                                            :
+                                            <FaTimes className="text-xl text-red-500 mr-4" />
+                                    }
+                                </>
+                            }
+                        </div>
+                        <p className="text-red-500">{fileStatus[fileName] !== 'Uploaded' ? fileStatus[fileName] : ''}</p>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
@@ -190,14 +206,14 @@ interface ContainerProps {
 }
 
 const Container = ({ children }: ContainerProps) => (
-  <div className="flex flex-col items-center justify-between gap-4 min-h-60 bg-zinc-800 w-full max-w-2xl py-10 px-4 rounded-xl">
+  <div className="flex flex-col items-center justify-between gap-4 min-h-60 bg-zinc-800 w-full max-w-2xl py-10 px-4 rounded-xl h-fit">
     {children}
   </div>
 )
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-around p-4 bg-zinc-900 text-white">
+    <main className="min-h-screen flex-col py-20 px-4 md:px-32 bg-zinc-900 text-white grid grid-cols-1 gap-8 lg:grid-cols-2 2xl:grid-cols-3">
       <Container>
         <h1 className="text-2xl font-bold">File Uploader</h1>
         <FileUploader
@@ -206,7 +222,7 @@ export default function Home() {
             "image/png",
             "image/jpeg",
           ]}
-          maxFileSize={1}
+          maxFileSize={100}
           label="Max File Size: 1MB"
           labelAlt="Accepted File Types: png, jpeg"
         />
