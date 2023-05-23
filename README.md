@@ -2,7 +2,7 @@ In the modern web landscape, file uploading is a fundamental feature that many a
 
 React, with its component-based architecture, allows for easy scaling and reusability of code. Tailwind CSS provides low-level utility classes to let you build custom designs without leaving your HTML. Adding Daisy UI into the mix further enhances our toolkit. As an extension for Tailwind CSS, Daisy UI makes it easy to create beautiful interfaces in a jiffy. It's lightweight, easy to use, and accelerates the development process considerably.
 
-![Animated Example](https://cdn.designly.biz/blog_files/create-an-attractive-file-upload-widget-with-react-nextjs-and-tailwind-css/image1.gif)
+![Animated Example](https://cdn.designly.biz/blog_files/create-an-attractive-file-upload-widget-with-react-nextjs-and-tailwind-css/image2.gif)
 
 By leveraging the strengths of React, Tailwind CSS, and Daisy UI, we can create a user-friendly and aesthetically pleasing file uploader. Please feel free to check out or clone the repo at the bottom of the page. There is also a link to a demo as well.
 
