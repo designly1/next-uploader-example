@@ -265,6 +265,8 @@ That's it! No need for additional dependencies, this solution is lightweight, fu
 
 ---
 
+Note: the demo site API discards all files that are uploaded. The API also randomly returns a code 500 for demonstration of error handling.
+
 [Demo Site](https://next-uploader-example.vercel.app/) | [GitHub Repo](https://github.com/designly1/next-uploader-example)
 
 ---
